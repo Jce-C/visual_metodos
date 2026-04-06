@@ -1,0 +1,52 @@
+8/3/26, 19:21 Para desarrollar una pagina interactiva que visual...
+
+Para desarrollar una pagina interactiva que visual...
+
+Created with NotebookLM « 8/3/2026
+
+exported: 2026-03-09T00:21:03.362Z source: NotebookLM type: chat title: "Para desarrollar
+una pagina interactiva que visual..."
+
+Para desarrollar una pagina interactiva que visual...
+
+SUHATIA): 8/3/2026, 19:21:03
+
+Para desarrollar una pagina interactiva que visualice el funcionamiento de los métodos numéricos para encontrar raices, puedes
+utilizar el siguiente prompt estructurado. Este disefio se basa en la légica geométrica y las formulas matematicas
+proporcionadas por las fuentes.
+
+Prompt para el desarrollo de la herramienta visual de Métodos Numéricos
+
+Objetivo: Crear una aplicacién web interactiva (usando HTML5 Canvas, D3.js o Three.js) que permita visualizar paso a paso
+como cinco métodos numéricos convergen (o divergen) hacia la raiz de una funcién f(x)=0
+
+1. Requerimientos de Visualizacion General
+Grafico dinamico: Un plano cartesiano donde se grafique Ia funcién f(x) y se marque claramente el eje x[1][2]
+Controles: Botones para "Siguiente Paso”, "Reiniciar" y un selector de velocidad de animacién.
+
+Panel de Datos: Una tabla lateral que muestre la iteracion actual (i), los valores de los puntos (xi), el valor de la funcion f(xi) y el
+error aproximado relativo[3][4].
+
+2. Logica de Animacion por Método
+A. Métodos Cerrados (Garantizan convergencia si hay cambio de signo[5][6])
+Método de Biseccion:
+
+Visualizacién: Mostrar un intervalo [a,b] resaltado. La animacién debe dibujar una linea vertical en el punto medio c=(a+b)/2[6]
+.
+
+Paso a paso: Evaluar los signos de f(a) y f(c). Si f(a)-f(c)<0, el intervalo se reduce a [a,c; si no,  [c,b][7]. Sombrear el drea
+descartada en cada paso.
+
+**Férmula en pantalla:**xa=2xi+xs[8].
+Método de Falsa Posicién (Regula Falsi):
+Visualizacién: Dibujar una linea recta (secante) que una los puntos (a,f(a)) y (b.f(b))[2][10].
+
+Paso a paso: El punto donde esta linea cruza el eje x es la nueva aproximacion c[11]. Repetir el proceso de biseccion para elegir
+el nuevo subintervalo.
+
+**Férmula en pantalla:**c=a~f(b)-f(a)f(a)(b-a)[11].
+B. Métodos Abiertos (Mas rapidos pero pueden divergir[5][12])
+
+Método de Newton-Raphson:
+
+https:/notebooklm.google.com/notebook/029e3062-2ce 1-482a-a1d1-b82296ce433¢c

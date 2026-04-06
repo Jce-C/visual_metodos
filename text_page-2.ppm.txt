@@ -1,0 +1,60 @@
+8/3/26, 19:21 Para desarrollar una pagina interactiva que visual...
+
+Visualizacién: Desde un punto inicial xn, trazar una linea vertical hasta la curva (xn,f(xn)) y luego dibujar la recta tangente en
+ese punto[13].
+
+Paso a paso: Mostrar como la interseccion de la tangente con el eje x se convierte en el nuevo xn+1[14][16].
+“*Férmula en pantalla:**xn+1=xn—F(xn)f(xn)[15][17].
+
+Método de la Secante:
+
+Visualizacién: Requiere dos puntos iniciales xn-1y xn. Trazar una linea recta que pase por (xn=1,f(xn=1)) y (xn,f(xn)[18]19].
+
+Paso a paso: El nuevo punto xn+1 es la interseccion de esta linea con el eje x[18]. Los puntos se van "desplazando" en cada
+iteracion.
+
+*“*Férmula en pantalla:**xn+1=xn-f(xn)~f(xn~1)f(xn)(xn-xn-1)[19][20].
+
+Método de Punto Fi
+
+Visualizacién: Graficar la funcion transformada y=g(x) y la recta identidad y=x[21].
+
+Paso a paso: Utilizar un diagrama de telarafia: trazar una linea vertical desde i hasta Ia curva g(x), luego una horizontal hasta
+Ia recta y=x para encontrar el siguiente xi+1[21][22].
+
+**Férmula en pantalla:**xi+1=g(xi)[24][25].
+3. Casos Especiales y Explicaciones
+
+Divergencia: Incluir una opcién de "Ver fallo” donde se muestre cémo Newton-Raphson falla si la derivada es cero (f(x)=0)
+resultando en una tangente horizontal[26][27].
+
+Convergencia de Punto Fijo: Mostrar que solo funciona si Ig/(x)I<1 cerca de la raiz[25][28]
+
+Criterio de Parada: Mostrar visualmente el error disminuyendo hasta que If(x)I<tolerancia[29].
+
+Resumen de Férmulas para la Explicacién[30][31]
+
+Método Tipo Férmula de Recurrencia Requisito Visual Clave
+
+Biseccion Cerrado c=(a+b)/2 Divisién del segmento a la mitad.
+
+Falsa Posicin Cerrado  c=a-f(b)-f(a)f(a)(b—a) Linea recta entre extremos del intervalo
+
+Newton-Raphson ~ Abierto xn+1=xn-f(xn)/F(xn) Recta tangente a la curva.
+
+Secante Abierto xn+1=xn-f(xn)~f(xn-1)f(xn)(xn-xn-1) Linea recta entre dos puntos de la curva.
+
+Punto Fijo Abierto xi+1=g(xi) Interseccién entre y=g(x) y y=x.
+SIAKIER
+
+[1] Introduccién a los Métodos cerrados y abiertos [2] Método Newton-Raphson | Ejemplo [3] 14. Método de la falsa Posicion
+ejercicio parte 1 [4] 2.3 Métodos abiertos [5] guia_exposicion_metodos_numericos.pdf [6] metodos_numericos.pptx.pdf [7]
+guia_exposicion_metodos_numericos.pdf [8] 8. Método de la Biseccién ejercicio parte 1 [9]
+guia_exposicion_metodos_numericos.pdf [10] metodos_numericos.pptx.pdf [11] guia_exposicion_metodos_numericos.pdf [12]
+guia_exposicion_metodos_numericos.pdf [13] 2.3 Métodos abiertos [14] REO7: Método de Newton Raphson [15]
+guia_exposicion_metodos_numericos.pdf [16] Método Newton-Raphson | Ejemplo [17] 2.3 Métodos abiertos [18] Secante |
+Raices | Métodos Numéricos | Bésico [19] guia_exposicion_metodos_numericos. pdf [20] METODO DE LA SECANTE [21] 2.3
+Métodos abiertos [22] 2.3 Métodos abiertos [24] 2.3 Métodos abiertos [25] guia_exposicion_metodos_numericos.pdf [26] REO7:
+Método de Newton Raphson [27] guia_exposicion_metodos_numericos.pdf [28] 18. Método del punto Fijo (Teoria, Ejercicio) [29]
+
+https:/notebooklm.google.com/notebook/029e3062-2ce 1-482a-a1d1-b82296ce433¢c
