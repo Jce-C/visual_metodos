@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { evaluate } from 'mathjs';
 import { IterationState, MethodType, MathParams } from '../lib/math-engine';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ZoomIn, ZoomOut } from 'lucide-react';
 
 interface MathGraphProps {
@@ -14,6 +14,14 @@ interface Tooltip {
   y: number;
   text: string;
   visible: boolean;
+}
+
+interface PointLabel {
+  x: number;
+  y: number;
+  label: string;
+  color: string;
+  delay: number;
 }
 
 export function MathGraph({ params, iterations }: MathGraphProps) {
@@ -42,16 +50,14 @@ export function MathGraph({ params, iterations }: MathGraphProps) {
 
   const { width, height } = dimensions;
 
-  // Auto-calculate domain based on iterations and keep it centered
-  // Also handle auto-zoom for small values
   const domain = useMemo(() => {
     let xMin = -10, xMax = 10, yMin = -10, yMax = 10;
     let autoZoom = 1;
-    
+
     if (iterations.length > 0) {
       let xs: number[] = [];
       let ys: number[] = [];
-      
+
       iterations.forEach(it => {
         if (it.a !== undefined) xs.push(it.a);
         if (it.b !== undefined) xs.push(it.b);
@@ -71,20 +77,18 @@ export function MathGraph({ params, iterations }: MathGraphProps) {
         const diffX = Math.max(maxX - minX, 2);
         xMin = minX - diffX * 0.3;
         xMax = maxX + diffX * 0.3;
-        
-        // Auto-zoom for small values
+
         if (diffX < 0.1) autoZoom = 3;
         else if (diffX < 0.5) autoZoom = 2;
       }
-      
+
       if (ys.length > 0) {
         const minY = Math.min(...ys);
         const maxY = Math.max(...ys);
         const diffY = Math.max(maxY - minY, 2);
         yMin = minY - diffY * 0.3;
         yMax = maxY + diffY * 0.3;
-        
-        // Auto-zoom for small values
+
         if (diffY < 0.1) autoZoom = Math.max(autoZoom, 3);
         else if (diffY < 0.5) autoZoom = Math.max(autoZoom, 2);
       }
@@ -95,13 +99,12 @@ export function MathGraph({ params, iterations }: MathGraphProps) {
         xMin = params.x0 - 5; xMax = params.x0 + 5;
       }
     }
-    
+
     if (xMin > 0 && xMin < 2) xMin = -1;
     if (xMax < 0 && xMax > -2) xMax = 1;
     if (yMin > 0 && yMin < 2) yMin = -1;
     if (yMax < 0 && yMax > -2) yMax = 1;
 
-    // Ensure no zero width/height
     if (xMax <= xMin) xMax = xMin + 1;
     if (yMax <= yMin) yMax = yMin + 1;
 
@@ -112,8 +115,6 @@ export function MathGraph({ params, iterations }: MathGraphProps) {
 
   const mapX = (x: number) => {
     const range = (domain.xMax - domain.xMin);
-    const centerX = (domain.xMax + domain.xMin) / 2;
-    // Apply pan relative to the data range, not screen pixels directly for consistency
     const xWithPan = x - (panX / (width * effectiveZoom)) * range;
     return ((xWithPan - domain.xMin) / range) * width * effectiveZoom;
   };
@@ -124,7 +125,6 @@ export function MathGraph({ params, iterations }: MathGraphProps) {
     return height - (((yWithPan - domain.yMin) / range) * height * effectiveZoom);
   };
 
-  // Inverse map for tooltip
   const unmapX = (px: number) => {
     const range = domain.xMax - domain.xMin;
     return domain.xMin + (px / (width * effectiveZoom)) * range + (panX / (width * effectiveZoom)) * range;
@@ -135,15 +135,13 @@ export function MathGraph({ params, iterations }: MathGraphProps) {
     return domain.yMin + ((height - py) / (height * effectiveZoom)) * range + (panY / (height * effectiveZoom)) * range;
   };
 
-  // Generate f(x) path
   const functionPath = useMemo(() => {
     let d = "";
-    const steps = 300; // Increased steps for better resolution
+    const steps = 300;
     const rangeX = (domain.xMax - domain.xMin);
     const viewPortXMin = domain.xMin + (panX / (width * effectiveZoom)) * rangeX;
     const viewPortXMax = viewPortXMin + rangeX;
-    
-    // Draw slightly beyond the viewport to ensure smooth edges
+
     const drawMinX = viewPortXMin - rangeX * 0.5;
     const drawMaxX = viewPortXMax + rangeX * 0.5;
     const stepX = (drawMaxX - drawMinX) / steps;
@@ -159,13 +157,12 @@ export function MathGraph({ params, iterations }: MathGraphProps) {
         }
         const px = mapX(x);
         const py = mapY(y);
-        
-        // Safety check for extreme values
+
         if (py < -height * 5 || py > height * 5) {
           first = true;
           continue;
         }
-        
+
         if (first) {
           d += `M ${px} ${py} `;
           first = false;
@@ -179,7 +176,6 @@ export function MathGraph({ params, iterations }: MathGraphProps) {
     return d;
   }, [params.f, domain, width, height, zoom, panX, panY, effectiveZoom]);
 
-  // Generate g(x) path
   const gFunctionPath = useMemo(() => {
     if (params.method !== 'fixedPoint' || !params.g) return "";
     let d = "";
@@ -187,7 +183,7 @@ export function MathGraph({ params, iterations }: MathGraphProps) {
     const rangeX = (domain.xMax - domain.xMin);
     const viewPortXMin = domain.xMin + (panX / (width * effectiveZoom)) * rangeX;
     const viewPortXMax = viewPortXMin + rangeX;
-    
+
     const drawMinX = viewPortXMin - rangeX * 0.5;
     const drawMaxX = viewPortXMax + rangeX * 0.5;
     const stepX = (drawMaxX - drawMinX) / steps;
@@ -229,10 +225,10 @@ export function MathGraph({ params, iterations }: MathGraphProps) {
       const rect = svgRef.current.getBoundingClientRect();
       const px = e.clientX - rect.left;
       const py = e.clientY - rect.top;
-      
+
       const x = unmapX(px);
       const y = unmapY(py);
-      
+
       try {
         const fx = evaluate(params.f, { x });
         setTooltip({
@@ -260,8 +256,9 @@ export function MathGraph({ params, iterations }: MathGraphProps) {
 
   const handleMouseMove2 = (e: React.MouseEvent<SVGSVGElement>) => {
     if (isDragging) {
-      const newPanX = e.clientX - dragStart.x;
-      const newPanY = dragStart.y - e.clientY; // Invert Y drag
+      // INVERTIR LA NAVEGACIÓN: ahora arrastrar a la izquierda mueve la vista a la izquierda
+      const newPanX = -(e.clientX - dragStart.x);
+      const newPanY = -(dragStart.y - e.clientY);
       setPanX(newPanX);
       setPanY(newPanY);
     }
@@ -286,12 +283,53 @@ export function MathGraph({ params, iterations }: MathGraphProps) {
     setPanY(0);
   };
 
+  // Generar etiquetas de puntos didácticas
+  const pointLabels: PointLabel[] = useMemo(() => {
+    if (!lastIt) return [];
+    const labels: PointLabel[] = [];
+
+    if (params.method === 'bisection' || params.method === 'falsePosition') {
+      if (lastIt.a !== undefined) {
+        labels.push({ x: lastIt.a, y: 0, label: `a = ${lastIt.a.toFixed(4)}`, color: 'hsl(190, 90%, 50%)', delay: 0 });
+      }
+      if (lastIt.b !== undefined) {
+        labels.push({ x: lastIt.b, y: 0, label: `b = ${lastIt.b.toFixed(4)}`, color: 'hsl(190, 90%, 50%)', delay: 0.1 });
+      }
+      if (lastIt.c !== undefined) {
+        labels.push({ x: lastIt.c, y: lastIt.fc!, label: `c = ${lastIt.c.toFixed(4)}\nf(c) = ${lastIt.fc!.toFixed(4)}`, color: 'hsl(262, 83%, 68%)', delay: 0.3 });
+      }
+    } else if (params.method === 'newton') {
+      if (lastIt.xi !== undefined) {
+        labels.push({ x: lastIt.xi, y: lastIt.fxi!, label: `x${lastIt.i} = ${lastIt.xi.toFixed(4)}\nf(x${lastIt.i}) = ${lastIt.fxi!.toFixed(4)}`, color: 'hsl(190, 90%, 50%)', delay: 0.4 });
+      }
+      if (lastIt.xNext !== undefined) {
+        labels.push({ x: lastIt.xNext, y: 0, label: `x${lastIt.i + 1} = ${lastIt.xNext.toFixed(4)}`, color: 'hsl(316, 70%, 50%)', delay: 0.7 });
+      }
+    } else if (params.method === 'secant') {
+      if (lastIt.xi_minus_1 !== undefined) {
+        labels.push({ x: lastIt.xi_minus_1, y: lastIt.fxi_minus_1!, label: `x${lastIt.i - 1} = ${lastIt.xi_minus_1.toFixed(4)}`, color: 'hsl(190, 90%, 50%)', delay: 0 });
+      }
+      if (lastIt.xi !== undefined) {
+        labels.push({ x: lastIt.xi, y: lastIt.fxi!, label: `x${lastIt.i} = ${lastIt.xi.toFixed(4)}`, color: 'hsl(190, 90%, 50%)', delay: 0.2 });
+      }
+      if (lastIt.xNext !== undefined) {
+        labels.push({ x: lastIt.xNext, y: 0, label: `x${lastIt.i + 1} = ${lastIt.xNext.toFixed(4)}`, color: 'hsl(316, 70%, 50%)', delay: 0.5 });
+      }
+    } else if (params.method === 'fixedPoint') {
+      if (lastIt.xi !== undefined) {
+        labels.push({ x: lastIt.xi, y: lastIt.gxi!, label: `x${lastIt.i} = ${lastIt.xi.toFixed(4)}\ng(x${lastIt.i}) = ${lastIt.gxi!.toFixed(4)}`, color: 'hsl(190, 90%, 50%)', delay: 0.2 });
+      }
+    }
+
+    return labels;
+  }, [lastIt, params.method]);
+
   return (
     <div ref={containerRef} className="w-full h-full relative overflow-hidden bg-[#0A0F1A] rounded-xl border border-white/5 shadow-2xl" style={{ cursor: isDragging ? 'grabbing' : 'grab' }}>
-      <svg 
+      <svg
         ref={svgRef}
-        width="100%" 
-        height="100%" 
+        width="100%"
+        height="100%"
         className="absolute inset-0"
         onMouseMove={handleMouseMove2}
         onMouseLeave={handleMouseLeave}
@@ -302,15 +340,22 @@ export function MathGraph({ params, iterations }: MathGraphProps) {
           <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
             <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="1"/>
           </pattern>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+            <feMerge>
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
         </defs>
         <rect width="100%" height="100%" fill="url(#grid)" />
-        
-        {/* Grid labels / Coordinates */}
+
+        {/* Grid labels */}
         {(() => {
           const labels = [];
           const rangeX = (domain.xMax - domain.xMin);
           const rangeY = (domain.yMax - domain.yMin);
-          
+
           const viewPortXMin = domain.xMin + (panX / (width * effectiveZoom)) * rangeX;
           const viewPortXMax = viewPortXMin + rangeX;
           const viewPortYMin = domain.yMin + (panY / (height * effectiveZoom)) * rangeY;
@@ -318,8 +363,7 @@ export function MathGraph({ params, iterations }: MathGraphProps) {
 
           const stepX = rangeX / 10;
           const stepY = rangeY / 10;
-          
-          // Calculate grid starting point based on viewport
+
           const startX = Math.floor(viewPortXMin / stepX) * stepX;
           const startY = Math.floor(viewPortYMin / stepY) * stepY;
 
@@ -328,7 +372,7 @@ export function MathGraph({ params, iterations }: MathGraphProps) {
             const y = startY + i * stepY;
             const px = mapX(x);
             const py = mapY(y);
-            
+
             if (px >= 0 && px <= width) {
               labels.push(
                 <text key={`x-${i}-${x}`} x={px} y={Math.max(15, Math.min(height - 5, xAxisY + 15))} fontSize="10" fill="rgba(255,255,255,0.4)" textAnchor="middle">
@@ -364,137 +408,319 @@ export function MathGraph({ params, iterations }: MathGraphProps) {
         )}
         <path d={functionPath} stroke="hsl(190, 90%, 50%)" strokeWidth="2.5" fill="none" className="drop-shadow-lg" />
 
-        {/* Method Specific Visualizations */}
-        {lastIt && (
-          <>
-            {/* BISECTION & FALSE POSITION - Show history trail */}
-            {(params.method === 'bisection' || params.method === 'falsePosition') && lastIt.a !== undefined && lastIt.b !== undefined && lastIt.c !== undefined && (
-              <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                {/* Previous interval - faded */}
-                {lastIt.a_prev !== undefined && lastIt.b_prev !== undefined && (
-                  <>
-                    <rect 
-                      x={Math.min(mapX(lastIt.a_prev), mapX(lastIt.b_prev))} y={0} 
-                      width={Math.abs(mapX(lastIt.b_prev) - mapX(lastIt.a_prev))} height={height} 
-                      fill="rgba(150, 100, 150, 0.05)"
-                      opacity="0.3"
+        {/* VISUALIZACIONES DIDÁCTICAS ESPECÍFICAS POR MÉTODO */}
+        <AnimatePresence mode="wait">
+          {lastIt && (
+            <motion.g key={`iteration-${iterations.length}`}>
+
+              {/* BISECCIÓN Y FALSA POSICIÓN */}
+              {(params.method === 'bisection' || params.method === 'falsePosition') && lastIt.a !== undefined && lastIt.b !== undefined && lastIt.c !== undefined && (
+                <>
+                  {/* Intervalo actual resaltado */}
+                  <motion.rect
+                    x={Math.min(mapX(lastIt.a), mapX(lastIt.b))} y={0}
+                    width={Math.abs(mapX(lastIt.b) - mapX(lastIt.a))} height={height}
+                    fill="hsl(190, 90%, 50%, 0.08)"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.6 }}
+                  />
+
+                  {/* Líneas verticales en a y b */}
+                  <motion.line
+                    x1={mapX(lastIt.a)} y1={0} x2={mapX(lastIt.a)} y2={height}
+                    stroke="hsl(190, 90%, 50%)" strokeWidth="1.5" strokeDasharray="3,3"
+                    initial={{ pathLength: 0, opacity: 0 }}
+                    animate={{ pathLength: 1, opacity: 0.4 }}
+                    transition={{ duration: 0.6, delay: 0.2 }}
+                  />
+                  <motion.line
+                    x1={mapX(lastIt.b)} y1={0} x2={mapX(lastIt.b)} y2={height}
+                    stroke="hsl(190, 90%, 50%)" strokeWidth="1.5" strokeDasharray="3,3"
+                    initial={{ pathLength: 0, opacity: 0 }}
+                    animate={{ pathLength: 1, opacity: 0.4 }}
+                    transition={{ duration: 0.6, delay: 0.3 }}
+                  />
+
+                  {/* Puntos en a y b sobre el eje X */}
+                  <motion.circle
+                    cx={mapX(lastIt.a)} cy={xAxisY} r="7"
+                    fill="hsl(190, 90%, 50%)"
+                    filter="url(#glow)"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.4, type: 'spring', stiffness: 200 }}
+                  />
+                  <motion.circle
+                    cx={mapX(lastIt.b)} cy={xAxisY} r="7"
+                    fill="hsl(190, 90%, 50%)"
+                    filter="url(#glow)"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.5, type: 'spring', stiffness: 200 }}
+                  />
+
+                  {/* Línea de conexión para Falsa Posición */}
+                  {params.method === 'falsePosition' && (
+                    <motion.line
+                      x1={mapX(lastIt.a)} y1={mapY(lastIt.fa!)}
+                      x2={mapX(lastIt.b)} y2={mapY(lastIt.fb!)}
+                      stroke="hsl(316, 70%, 50%)" strokeWidth="2.5"
+                      initial={{ pathLength: 0 }}
+                      animate={{ pathLength: 1 }}
+                      transition={{ duration: 0.8, delay: 0.6 }}
                     />
-                    <motion.circle cx={mapX(lastIt.a_prev)} cy={xAxisY} r="4" fill="hsl(300, 70%, 50%)" opacity="0.4" initial={{ scale: 0 }} animate={{ scale: 1 }} />
-                    <motion.circle cx={mapX(lastIt.b_prev)} cy={xAxisY} r="4" fill="hsl(300, 70%, 50%)" opacity="0.4" initial={{ scale: 0 }} animate={{ scale: 1 }} />
-                  </>
-                )}
-                
-                {/* Current interval - bright */}
-                <motion.rect 
-                  x={Math.min(mapX(lastIt.a), mapX(lastIt.b))} y={0} 
-                  width={Math.abs(mapX(lastIt.b) - mapX(lastIt.a))} height={height} 
-                  fill="hsl(190, 90%, 50%, 0.08)"
-                  initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                />
-                
-                {/* Current bounds a, b */}
-                <motion.circle cx={mapX(lastIt.a)} cy={xAxisY} r="6" fill="hsl(190, 90%, 50%)" initial={{ scale: 0 }} animate={{ scale: 1 }} />
-                <motion.circle cx={mapX(lastIt.b)} cy={xAxisY} r="6" fill="hsl(190, 90%, 50%)" initial={{ scale: 0 }} animate={{ scale: 1 }} />
-                
-                {/* Midpoint c with enhanced tracking */}
-                <motion.line x1={mapX(lastIt.c)} y1={0} x2={mapX(lastIt.c)} y2={height} stroke="hsl(262, 83%, 68%)" strokeWidth="2.5" strokeDasharray="4,4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} />
-                {/* Tracking line from midpoint to curve */}
-                <motion.line x1={mapX(lastIt.c)} y1={xAxisY} x2={mapX(lastIt.c)} y2={mapY(lastIt.fc!)} stroke="hsl(262, 83%, 68%)" strokeWidth="1.5" opacity="0.6" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ delay: 0.1, duration: 0.4 }} />
-                {/* Point on curve */}
-                <motion.circle cx={mapX(lastIt.c)} cy={mapY(lastIt.fc!)} r="6" fill="hsl(262, 83%, 68%)" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2 }} />
-                {/* Point on x-axis */}
-                <motion.circle cx={mapX(lastIt.c)} cy={xAxisY} r="5" fill="hsl(262, 83%, 68%)" opacity="0.6" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.15 }} />
-              </motion.g>
-            )}
+                  )}
 
-            {/* NEWTON - Animated tangent then point with history */}
-            {params.method === 'newton' && lastIt.xi !== undefined && lastIt.xNext !== undefined && (
-              <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                {/* Previous point - faded */}
-                {lastIt.xi_prev !== undefined && (
-                  <motion.circle cx={mapX(lastIt.xi_prev)} cy={mapY(lastIt.fxi!)} r="3" fill="hsl(150, 70%, 50%)" opacity="0.3" initial={{ scale: 0 }} animate={{ scale: 1 }} />
-                )}
-                
-                {/* Vertical line xi to f(xi) */}
-                <motion.line x1={mapX(lastIt.xi)} y1={xAxisY} x2={mapX(lastIt.xi)} y2={mapY(lastIt.fxi!)} stroke="rgba(255,255,255,0.3)" strokeDasharray="4,4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} />
-                
-                {/* Tangent line */}
-                <line 
-                  x1={mapX(lastIt.xi)} y1={mapY(lastIt.fxi!)} 
-                  x2={mapX(lastIt.xNext)} y2={xAxisY} 
-                  stroke="hsl(316, 70%, 50%)" strokeWidth="2"
-                />
-                
-                {/* Point on curve */}
-                <motion.circle 
-                  cx={mapX(lastIt.xi)} cy={mapY(lastIt.fxi!)} r="6" fill="hsl(190, 90%, 50%)" 
-                  initial={{ scale: 0 }} 
-                  animate={{ scale: 1 }} 
-                  transition={{ delay: 0.3, type: 'spring' }}
-                />
-                
-                {/* New point */}
-                <motion.circle 
-                  cx={mapX(lastIt.xNext)} cy={xAxisY} r="6" fill="hsl(316, 70%, 50%)" 
-                  initial={{ scale: 0 }} 
-                  animate={{ scale: 1 }} 
-                  transition={{ delay: 0.55, type: 'spring', stiffness: 150 }}
-                />
-              </motion.g>
-            )}
+                  {/* Línea vertical en c hasta la curva */}
+                  <motion.line
+                    x1={mapX(lastIt.c)} y1={xAxisY}
+                    x2={mapX(lastIt.c)} y2={mapY(lastIt.fc!)}
+                    stroke="hsl(262, 83%, 68%)" strokeWidth="2" strokeDasharray="4,4"
+                    initial={{ pathLength: 0 }}
+                    animate={{ pathLength: 1 }}
+                    transition={{ duration: 0.7, delay: 0.8 }}
+                  />
 
-            {/* SECANT - Show both previous points and current */}
-            {params.method === 'secant' && lastIt.xi !== undefined && lastIt.xi_minus_1 !== undefined && lastIt.xNext !== undefined && (
-              <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                {/* Previous points - faded */}
-                {lastIt.xi_prev !== undefined && (
-                  <motion.circle cx={mapX(lastIt.xi_prev)} cy={mapY(lastIt.fxi!)} r="3" fill="hsl(150, 70%, 50%)" opacity="0.3" initial={{ scale: 0 }} animate={{ scale: 1 }} />
-                )}
-                {lastIt.xi_minus_1_prev !== undefined && (
-                  <motion.circle cx={mapX(lastIt.xi_minus_1_prev)} cy={mapY(lastIt.fxi!)} r="3" fill="hsl(150, 70%, 50%)" opacity="0.3" initial={{ scale: 0 }} animate={{ scale: 1 }} />
-                )}
-                
-                {/* Current secant line between two points */}
-                <line 
-                  x1={mapX(lastIt.xi_minus_1)} y1={mapY(lastIt.fxi_minus_1!)} 
-                  x2={mapX(lastIt.xi)} y2={mapY(lastIt.fxi!)} 
-                  stroke="hsl(316, 70%, 50%)" strokeWidth="2" strokeDasharray="4,4"
-                />
-                <line 
-                  x1={mapX(lastIt.xi)} y1={mapY(lastIt.fxi!)} 
-                  x2={mapX(lastIt.xNext)} y2={xAxisY} 
-                  stroke="hsl(316, 70%, 50%)" strokeWidth="2"
-                />
-                <motion.circle cx={mapX(lastIt.xi_minus_1)} cy={mapY(lastIt.fxi_minus_1!)} r="5" fill="hsl(190, 90%, 50%)" initial={{ scale: 0 }} animate={{ scale: 1 }} />
-                <motion.circle cx={mapX(lastIt.xi)} cy={mapY(lastIt.fxi!)} r="6" fill="hsl(190, 90%, 50%)" initial={{ scale: 0 }} animate={{ scale: 1 }} />
-                <motion.circle cx={mapX(lastIt.xNext)} cy={xAxisY} r="6" fill="hsl(316, 70%, 50%)" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.3 }} />
-              </motion.g>
-            )}
+                  {/* Punto c sobre la curva */}
+                  <motion.circle
+                    cx={mapX(lastIt.c)} cy={mapY(lastIt.fc!)} r="8"
+                    fill="hsl(262, 83%, 68%)"
+                    filter="url(#glow)"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 1, type: 'spring', stiffness: 180 }}
+                  />
 
-            {/* FIXED POINT (Cobweb) */}
-            {params.method === 'fixedPoint' && (
-              <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                {iterations.map((it, idx) => {
-                  if (it.xi === undefined || it.gxi === undefined) return null;
-                  const opacity = 0.3 + (idx / Math.max(1, iterations.length - 1)) * 0.7;
-                  return (
-                    <motion.g key={idx} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: idx * 0.05 }}>
-                      <line x1={mapX(it.xi)} y1={mapY(idx === 0 ? 0 : it.xi)} x2={mapX(it.xi)} y2={mapY(it.gxi)} stroke="hsl(262, 83%, 68%)" strokeWidth="1.5" opacity={opacity} />
-                      <line x1={mapX(it.xi)} y1={mapY(it.gxi)} x2={mapX(it.gxi)} y2={mapY(it.gxi)} stroke="hsl(262, 83%, 68%)" strokeWidth="1.5" opacity={opacity} />
-                      <circle cx={mapX(it.xi)} cy={mapY(it.gxi)} r="3" fill="hsl(190, 90%, 50%)" opacity={opacity} />
-                    </motion.g>
-                  );
-                })}
+                  {/* Punto c sobre el eje X */}
+                  <motion.circle
+                    cx={mapX(lastIt.c)} cy={xAxisY} r="6"
+                    fill="hsl(262, 83%, 68%)"
+                    opacity="0.7"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 1.1, type: 'spring', stiffness: 180 }}
+                  />
+                </>
+              )}
+
+              {/* NEWTON-RAPHSON */}
+              {params.method === 'newton' && lastIt.xi !== undefined && lastIt.xNext !== undefined && lastIt.dfxi !== undefined && (
+                <>
+                  {/* Línea vertical desde xi hasta f(xi) */}
+                  <motion.line
+                    x1={mapX(lastIt.xi)} y1={xAxisY}
+                    x2={mapX(lastIt.xi)} y2={mapY(lastIt.fxi!)}
+                    stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" strokeDasharray="4,4"
+                    initial={{ pathLength: 0 }}
+                    animate={{ pathLength: 1 }}
+                    transition={{ duration: 0.6, delay: 0.2 }}
+                  />
+
+                  {/* Punto sobre la curva */}
+                  <motion.circle
+                    cx={mapX(lastIt.xi)} cy={mapY(lastIt.fxi!)} r="8"
+                    fill="hsl(190, 90%, 50%)"
+                    filter="url(#glow)"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.5, type: 'spring', stiffness: 200 }}
+                  />
+
+                  {/* LÍNEA TANGENTE - El corazón del método Newton */}
+                  <motion.line
+                    x1={mapX(lastIt.xi - 2)}
+                    y1={mapY(lastIt.fxi! - 2 * lastIt.dfxi!)}
+                    x2={mapX(lastIt.xi + 2)}
+                    y2={mapY(lastIt.fxi! + 2 * lastIt.dfxi!)}
+                    stroke="hsl(316, 70%, 50%)"
+                    strokeWidth="2.5"
+                    initial={{ pathLength: 0, opacity: 0 }}
+                    animate={{ pathLength: 1, opacity: 1 }}
+                    transition={{ duration: 0.9, delay: 0.7 }}
+                  />
+
+                  {/* Línea desde la tangente hasta xNext en el eje */}
+                  <motion.line
+                    x1={mapX(lastIt.xNext)} y1={xAxisY}
+                    x2={mapX(lastIt.xNext)} y2={mapY(0)}
+                    stroke="hsl(316, 70%, 50%)" strokeWidth="1.5" strokeDasharray="3,3"
+                    initial={{ pathLength: 0 }}
+                    animate={{ pathLength: 1 }}
+                    transition={{ duration: 0.5, delay: 1.2 }}
+                  />
+
+                  {/* Nuevo punto xNext */}
+                  <motion.circle
+                    cx={mapX(lastIt.xNext)} cy={xAxisY} r="8"
+                    fill="hsl(316, 70%, 50%)"
+                    filter="url(#glow)"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 1.4, type: 'spring', stiffness: 180 }}
+                  />
+                </>
+              )}
+
+              {/* MÉTODO DE LA SECANTE */}
+              {params.method === 'secant' && lastIt.xi !== undefined && lastIt.xi_minus_1 !== undefined && lastIt.xNext !== undefined && (
+                <>
+                  {/* Puntos x(i-1) y x(i) sobre la curva */}
+                  <motion.circle
+                    cx={mapX(lastIt.xi_minus_1)} cy={mapY(lastIt.fxi_minus_1!)} r="7"
+                    fill="hsl(190, 90%, 50%)"
+                    filter="url(#glow)"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.3, type: 'spring' }}
+                  />
+                  <motion.circle
+                    cx={mapX(lastIt.xi)} cy={mapY(lastIt.fxi!)} r="7"
+                    fill="hsl(190, 90%, 50%)"
+                    filter="url(#glow)"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.5, type: 'spring' }}
+                  />
+
+                  {/* LÍNEA SECANTE entre los dos puntos */}
+                  <motion.line
+                    x1={mapX(lastIt.xi_minus_1)} y1={mapY(lastIt.fxi_minus_1!)}
+                    x2={mapX(lastIt.xi)} y2={mapY(lastIt.fxi!)}
+                    stroke="hsl(316, 70%, 50%)" strokeWidth="2.5"
+                    initial={{ pathLength: 0 }}
+                    animate={{ pathLength: 1 }}
+                    transition={{ duration: 0.8, delay: 0.7 }}
+                  />
+
+                  {/* Extensión de la secante hasta el eje X */}
+                  <motion.line
+                    x1={mapX(lastIt.xi)} y1={mapY(lastIt.fxi!)}
+                    x2={mapX(lastIt.xNext)} y2={xAxisY}
+                    stroke="hsl(316, 70%, 50%)" strokeWidth="2" strokeDasharray="4,4"
+                    initial={{ pathLength: 0 }}
+                    animate={{ pathLength: 1 }}
+                    transition={{ duration: 0.6, delay: 1.2 }}
+                  />
+
+                  {/* Nuevo punto xNext */}
+                  <motion.circle
+                    cx={mapX(lastIt.xNext)} cy={xAxisY} r="8"
+                    fill="hsl(316, 70%, 50%)"
+                    filter="url(#glow)"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 1.5, type: 'spring', stiffness: 180 }}
+                  />
+                </>
+              )}
+
+              {/* PUNTO FIJO - Diagrama de telaraña */}
+              {params.method === 'fixedPoint' && iterations.length > 0 && (
+                <>
+                  {iterations.slice(Math.max(0, iterations.length - 5)).map((it, idx) => {
+                    if (it.xi === undefined || it.gxi === undefined) return null;
+                    const opacity = 0.4 + (idx / 5) * 0.6;
+                    const baseDelay = idx * 0.3;
+
+                    return (
+                      <motion.g key={idx}>
+                        {/* Línea vertical desde x_i hasta g(x_i) */}
+                        <motion.line
+                          x1={mapX(it.xi)}
+                          y1={mapY(idx === 0 && iterations.length === 1 ? 0 : it.xi)}
+                          x2={mapX(it.xi)}
+                          y2={mapY(it.gxi)}
+                          stroke="hsl(262, 83%, 68%)"
+                          strokeWidth="2"
+                          opacity={opacity}
+                          initial={{ pathLength: 0 }}
+                          animate={{ pathLength: 1 }}
+                          transition={{ duration: 0.4, delay: baseDelay }}
+                        />
+
+                        {/* Línea horizontal desde g(x_i) hasta la recta y=x */}
+                        <motion.line
+                          x1={mapX(it.xi)}
+                          y1={mapY(it.gxi)}
+                          x2={mapX(it.gxi)}
+                          y2={mapY(it.gxi)}
+                          stroke="hsl(262, 83%, 68%)"
+                          strokeWidth="2"
+                          opacity={opacity}
+                          initial={{ pathLength: 0 }}
+                          animate={{ pathLength: 1 }}
+                          transition={{ duration: 0.4, delay: baseDelay + 0.4 }}
+                        />
+
+                        {/* Punto en la intersección */}
+                        <motion.circle
+                          cx={mapX(it.xi)}
+                          cy={mapY(it.gxi)}
+                          r="5"
+                          fill="hsl(190, 90%, 50%)"
+                          opacity={opacity}
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ delay: baseDelay + 0.2, type: 'spring' }}
+                        />
+                      </motion.g>
+                    );
+                  })}
+                </>
+              )}
+            </motion.g>
+          )}
+        </AnimatePresence>
+
+        {/* ETIQUETAS DE PUNTOS CON COORDENADAS */}
+        <AnimatePresence>
+          {pointLabels.map((label, idx) => {
+            const px = mapX(label.x);
+            const py = mapY(label.y);
+            const lines = label.label.split('\n');
+
+            return (
+              <motion.g
+                key={`label-${idx}-${label.label}`}
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ delay: label.delay, duration: 0.5 }}
+              >
+                <rect
+                  x={px + 12}
+                  y={py - 10 - (lines.length - 1) * 14}
+                  width={Math.max(...lines.map(l => l.length * 6.5))}
+                  height={lines.length * 14 + 8}
+                  fill="rgba(0,0,0,0.85)"
+                  stroke={label.color}
+                  strokeWidth="1.5"
+                  rx="4"
+                />
+                {lines.map((line, lineIdx) => (
+                  <text
+                    key={lineIdx}
+                    x={px + 16}
+                    y={py - 2 + lineIdx * 14 - (lines.length - 1) * 14}
+                    fill={label.color}
+                    fontSize="11"
+                    fontFamily="monospace"
+                    fontWeight="600"
+                  >
+                    {line}
+                  </text>
+                ))}
               </motion.g>
-            )}
-          </>
-        )}
+            );
+          })}
+        </AnimatePresence>
       </svg>
-      
+
       {/* Tooltip */}
       {tooltip.visible && (
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.8 }} 
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           className="absolute bg-black/80 text-white text-xs px-3 py-1 rounded pointer-events-none border border-white/20 font-mono"
           style={{ left: tooltip.x + 10, top: tooltip.y + 10 }}
@@ -502,7 +728,7 @@ export function MathGraph({ params, iterations }: MathGraphProps) {
           {tooltip.text}
         </motion.div>
       )}
-      
+
       {/* HUD Info */}
       <div className="absolute top-4 left-4 text-xs font-mono text-white/50 bg-black/40 px-2 py-1 rounded">
         <div>Dominio: [{domain.xMin.toFixed(2)}, {domain.xMax.toFixed(2)}]</div>
@@ -534,15 +760,15 @@ export function MathGraph({ params, iterations }: MathGraphProps) {
           Reset
         </button>
       </div>
-      
+
       {/* Iteration counter */}
       {iterations.length > 0 && (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           className="absolute bottom-4 right-4 text-sm font-bold text-white bg-gradient-to-r from-primary/30 to-primary/10 px-4 py-2 rounded-lg border border-primary/30 backdrop-blur-sm"
         >
-          Paso {iterations.length}
+          Iteración {iterations.length}
         </motion.div>
       )}
     </div>
